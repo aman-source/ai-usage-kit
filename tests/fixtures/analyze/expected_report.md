@@ -19,14 +19,14 @@ Local use only: this report names local paths, projects and sessions. To share n
 
 exact = from API usage; est. = characters / 4. Exact and estimated numbers are never added together.
 
-| rule              | hits | exact tokens | est. tokens | fix                              |
-|-------------------|-----:|-------------:|------------:|----------------------------------|
-| repeated-read     |    1 |            0 |         125 | read-once                        |
-| large-tool-output |    1 |            0 |       6,250 | trim                             |
-| cache-rebuild     |    1 |        2,300 |           0 | defaults                         |
-| big-instructions  |    1 |            0 |           0 | defaults                         |
-| many-mcp          |    1 |            0 |           0 | defaults (mcp-diet if justified) |
-| long-session      |    0 |            0 |           0 | defaults                         |
+| rule              | hits | exact tokens | est. tokens | fix       |
+|-------------------|-----:|-------------:|------------:|-----------|
+| repeated-read     |    1 |            0 |         125 | read-once |
+| large-tool-output |    1 |            0 |       6,250 | trim      |
+| cache-rebuild     |    1 |        2,300 |           0 | defaults  |
+| big-instructions  |    1 |            0 |           0 | defaults  |
+| many-mcp          |    1 |            0 |           0 | eai mcp   |
+| long-session      |    0 |            0 |           0 | defaults  |
 
 ## Top 10 sessions
 
@@ -65,7 +65,7 @@ exact = from API usage; est. = characters / 4. Exact and estimated numbers are n
 
 - - -: <TMP>/other-repo/CLAUDE.md: 250 lines, 7,140 bytes (size on disk today)
 
-### many-mcp (fix: defaults (mcp-diet if justified))
+### many-mcp (fix: eai mcp)
 
 - C--work-secret-repo/sess-a 2026-10-01 09:00: 4 MCP servers announced (alpha, beta, gamma, secretsrv); first-call context 2,100 tokens
 

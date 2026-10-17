@@ -12,26 +12,47 @@ from typing import Any
 
 from ai_usage_kit.defaults.managed import Managed
 from ai_usage_kit.defaults.settings import Settings, SettingsError, delete_path, get_path, set_path
-from ai_usage_kit.rules.texts import CONCISE, MINIMAL
+from ai_usage_kit.rules.texts import CONCISE, MINIMAL, NAVIGATE
 
 # gitignore patterns relative to the current directory; in deny rules they match at any depth.
 # Deny rules win over every project setting and also block cat/head/tail in Bash, so the default set covers
 # generated output only. Dependencies, build dirs that may hold source, and lock files are opt-in.
 GENERATED_PATTERNS = ("dist/**", "__pycache__/**", ".next/**", "coverage/**")
 DEPENDENCY_PATTERNS = (
-    "node_modules/**", ".venv/**", "venv/**", "vendor/**", "build/**", "target/**", "package-lock.json",
-    "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock", "Cargo.lock",
+    "node_modules/**",
+    ".venv/**",
+    "venv/**",
+    "vendor/**",
+    "build/**",
+    "target/**",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "uv.lock",
+    "Cargo.lock",
 )
 DENY_RULES = tuple(f"Read({pattern})" for pattern in GENERATED_PATTERNS)
 DEPENDENCY_RULES = tuple(f"Read({pattern})" for pattern in DEPENDENCY_PATTERNS)
+
+# `eai on navigate` lets Claude run only the read-only query commands without asking (never hooks or clean).
+NAVIGATE_COMMANDS = ("where", "who-uses", "impact", "outline")
+NAVIGATE_ALLOW_RULES = tuple(
+    f"{tool}(eai navigate {cmd} *)" for tool in ("Bash", "PowerShell") for cmd in NAVIGATE_COMMANDS
+)
 
 # Signs of API-key, cloud-provider or LLM-gateway billing, where the main conversation gets a
 # five-minute cache by default. A gateway must forward the anthropic-beta header for the one-hour
 # cache to work.
 BILLING_ENV = (
-    "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL",
-    "ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY",
-    "CLAUDE_CODE_USE_ANTHROPIC_AWS", "CLAUDE_CODE_USE_MANTLE",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "CLAUDE_CODE_USE_ANTHROPIC_AWS",
+    "CLAUDE_CODE_USE_MANTLE",
 )
 
 
@@ -45,6 +66,10 @@ class Item:
     needs_api_billing: bool = False
     needs_hook_command: bool = False
     rule_file: bool = False
+    env_name: str | None = None  # a process environment variable that counts as "already set by you"
+    min_claude_code: str | None = None  # refuse when local logs show an older Claude Code
+    allow_rules: tuple[str, ...] = ()  # permissions.allow entries a rule-file item also adds
+    needs_eai_on_path: bool = False  # Claude runs `eai` by name, so it must be a permanent install on PATH
 
     @property
     def is_list(self) -> bool:
@@ -102,6 +127,27 @@ ITEMS = (
         "smallest complete code change, safety never cut (opt-in, next session)",
         rule_file=True,
     ),
+    Item(
+        "navigate",
+        "rules/eai-navigate.md",
+        NAVIGATE,
+        False,
+        "Claude asks a local Python code graph (eai navigate where/who-uses/impact/outline) before grep "
+        "(opt-in, next session)",
+        rule_file=True,
+        allow_rules=NAVIGATE_ALLOW_RULES,
+        needs_eai_on_path=True,
+    ),
+    Item(
+        "subagent-model",
+        "env.CLAUDE_CODE_SUBAGENT_MODEL",
+        "sonnet",
+        False,
+        "helper agents that pick no model run on Sonnet; main model, Explore and Plan unchanged "
+        "(opt-in, next session, Claude Code 2.1.251+)",
+        env_name="CLAUDE_CODE_SUBAGENT_MODEL",
+        min_claude_code="2.1.251",
+    ),
 )
 ITEM_IDS = tuple(item.id for item in ITEMS)
 
@@ -118,6 +164,11 @@ def get_item(item_id: str) -> Item:
         if item.id == item_id:
             return item
     raise KeyError(item_id)
+
+
+def version_key(version: str) -> tuple[int, ...]:
+    """Numeric version order: 2.1.9 < 2.1.251. Non-numeric parts count as 0."""
+    return tuple(int(part) if part.isdigit() else 0 for part in version.split("."))
 
 
 def api_billing(environ: Mapping[str, str], settings: Settings) -> str | None:
@@ -155,7 +206,10 @@ def apply_item(settings: Settings, item: Item, managed: Managed) -> Change:
         return Change("organization", settings, None)
     if found:
         return Change("own-value", settings, None)
-    return Change("applied", set_path(settings, item.key, item.value), {"key": item.key, "value": item.value})
+    parent = item.key.rpartition(".")[0]
+    created_parent = bool(parent) and not get_path(settings, parent)[0]
+    record = {"key": item.key, "value": item.value, "created_parent": created_parent}
+    return Change("applied", set_path(settings, item.key, item.value), record)
 
 
 def remove_item(settings: Settings, record: dict[str, Any]) -> Change:
@@ -175,7 +229,7 @@ def remove_item(settings: Settings, record: dict[str, Any]) -> Change:
         return Change("removed", settings, None)
     if current != record["value"]:
         return Change("changed-by-you", settings, None)
-    return Change("removed", delete_path(settings, key), None)
+    return Change("removed", delete_path(settings, key, prune=record.get("created_parent", True)), None)
 
 
 def hook_installed(settings: Settings, key: str, command: str) -> bool:
@@ -206,8 +260,13 @@ def _apply_hooks(settings: Settings, groups: Mapping[str, dict[str, Any]]) -> Ch
             created_events.append(event)
         if not hook_installed(new, key, command):
             new = set_path(new, key, [*(current if found else []), group])
-    record = {"key": "hooks", "hook_command": command, "events": dict(groups),
-              "created_events": created_events, "created_parent": created_parent}
+    record = {
+        "key": "hooks",
+        "hook_command": command,
+        "events": dict(groups),
+        "created_events": created_events,
+        "created_parent": created_parent,
+    }
     return Change("applied" if new != settings else "already", new, record)
 
 

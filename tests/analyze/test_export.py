@@ -6,8 +6,21 @@ from ai_usage_kit.analyze.runner import analyze
 from tests.analyze.fixture_tree import build_fixture_tree
 
 SENSITIVE = [
-    "SECRET-PROMPT", "secret-repo", "secret_module", "secret_tests", "secretsrv", "secret instructions",
-    "C--work", "sess-a", "sess-b", "agent-1", "config.py", "arn:aws", "123456789012", "alpha", "other-repo",
+    "SECRET-PROMPT",
+    "secret-repo",
+    "secret_module",
+    "secret_tests",
+    "secretsrv",
+    "secret instructions",
+    "C--work",
+    "sess-a",
+    "sess-b",
+    "agent-1",
+    "config.py",
+    "arn:aws",
+    "123456789012",
+    "alpha",
+    "other-repo",
 ]
 
 

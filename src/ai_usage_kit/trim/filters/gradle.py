@@ -68,9 +68,7 @@ def is_trimmable_build(args: Sequence[str]) -> bool:
             skip_value = True
         elif not arg.startswith("-"):
             tasks.append(arg.rsplit(":", 1)[-1])
-    return bool(tasks) and all(
-        task in BUILD_TASKS or task.startswith(BUILD_TASK_PREFIXES) for task in tasks
-    )
+    return bool(tasks) and all(task in BUILD_TASKS or task.startswith(BUILD_TASK_PREFIXES) for task in tasks)
 
 
 def keep_build_line(line: str) -> bool:

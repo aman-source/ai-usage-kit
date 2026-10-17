@@ -1,0 +1,4 @@
+[project]
+name = "svc_api"
+version = "0.1.0"
+dependencies = ["fastapi", "sharedlib"]

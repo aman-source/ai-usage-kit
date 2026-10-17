@@ -73,11 +73,18 @@ def test_prompts_and_compactions_count_main_thread_only() -> None:
 def test_mcp_servers_from_announcements_and_tool_use() -> None:
     records = [
         mcp_announce("mcp__alpha__a", "mcp__alpha__b", "Read", "mcp__beta__x"),
-        {"type": "attachment", "attachment": {"type": "deferred_tools_record",
-                                              "entries": [{"name": "mcp__gamma__g"}],
-                                              "nameOnlyAnnouncements": ["mcp__delta__d"]}},
-        {"type": "attachment",
-         "attachment": {"type": "mcp_instructions_delta", "addedNames": ["plugin:x:y"]}},
+        {
+            "type": "attachment",
+            "attachment": {
+                "type": "deferred_tools_record",
+                "entries": [{"name": "mcp__gamma__g"}],
+                "nameOnlyAnnouncements": ["mcp__delta__d"],
+            },
+        },
+        {
+            "type": "attachment",
+            "attachment": {"type": "mcp_instructions_delta", "addedNames": ["plugin:x:y"]},
+        },
         assistant("m1", content=[tool_use("t1", "mcp__epsilon__e")]),
     ]
     s = build_session("p", "s", [(MAIN, records)])
@@ -89,10 +96,15 @@ def test_prefix_peak_start_models() -> None:
     s = build_session(
         "p",
         "s",
-        [(MAIN, [
-            assistant("m1", minutes=0, usage=(100, 1, 0, 2000)),
-            assistant("m2", minutes=5, usage=(5, 1, 3000, 10), model="claude-opus-5-5"),
-        ])],
+        [
+            (
+                MAIN,
+                [
+                    assistant("m1", minutes=0, usage=(100, 1, 0, 2000)),
+                    assistant("m2", minutes=5, usage=(5, 1, 3000, 10), model="claude-opus-5-5"),
+                ],
+            )
+        ],
     )
     assert s.prefix_size == 2100
     assert s.peak_context == 3015
@@ -111,8 +123,10 @@ def test_tool_result_list_content_counts_text_only() -> None:
 def test_malformed_records_do_not_raise() -> None:
     records: list[Record] = [
         {"type": "assistant", "message": "oops"},
-        {"type": "assistant", "message": {"model": "claude-sonnet-5", "usage": {"input_tokens": "7"},
-                                          "content": "text"}},
+        {
+            "type": "assistant",
+            "message": {"model": "claude-sonnet-5", "usage": {"input_tokens": "7"}, "content": "text"},
+        },
         {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "missing"}]}},
         {"type": "attachment", "attachment": {"type": "deferred_tools_delta", "addedNames": "x"}},
         {"type": "assistant", "message": {"model": "claude-sonnet-5", "content": [{"type": "tool_use"}]}},
@@ -129,10 +143,19 @@ def test_mixed_timestamp_forms_compare_safely() -> None:
     assert parse_timestamp("2026-10-01T11:00:00+02:00") == datetime(2026, 10, 1, 9, tzinfo=UTC)
     assert parse_timestamp("yesterday") is None
     assert parse_timestamp(None) is None
-    s = build_session("p", "s", [(MAIN, [
-        {**assistant("m1"), "timestamp": "2026-10-01T09:00:00"},
-        {**assistant("m2"), "timestamp": "2026-10-01T09:05:00Z"},
-    ])])
+    s = build_session(
+        "p",
+        "s",
+        [
+            (
+                MAIN,
+                [
+                    {**assistant("m1"), "timestamp": "2026-10-01T09:00:00"},
+                    {**assistant("m2"), "timestamp": "2026-10-01T09:05:00Z"},
+                ],
+            )
+        ],
+    )
     assert s.start == datetime(2026, 10, 1, 9, tzinfo=UTC)
 
 

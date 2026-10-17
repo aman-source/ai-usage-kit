@@ -17,7 +17,17 @@ DENY = get_item("deny-reads")
 
 def test_item_ids() -> None:
     assert ITEM_IDS == (
-        "compact", "effort", "deny-reads", "deny-deps", "cache", "trim", "read-once", "concise", "minimal",
+        "compact",
+        "effort",
+        "deny-reads",
+        "deny-deps",
+        "cache",
+        "trim",
+        "read-once",
+        "concise",
+        "minimal",
+        "navigate",
+        "subagent-model",
     )
 
 
@@ -25,7 +35,7 @@ def test_value_item_applies_when_unset() -> None:
     change = apply_item({"model": "x"}, get_item("compact"), NONE)
     assert change.outcome == "applied"
     assert change.settings == {"model": "x", "autoCompactWindow": 200000}
-    assert change.record == {"key": "autoCompactWindow", "value": 200000}
+    assert change.record == {"key": "autoCompactWindow", "value": 200000, "created_parent": False}
 
 
 def test_value_item_keeps_the_developers_choice() -> None:

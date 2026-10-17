@@ -22,9 +22,22 @@ from ai_usage_kit.hook_files import append_count
 from ai_usage_kit.read_once import state
 
 MAX_BYTES = 2 * 1024 * 1024
-SKIP_SUFFIXES = frozenset({
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".tif", ".tiff", ".heic", ".pdf", ".ipynb",
-})
+SKIP_SUFFIXES = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".ico",
+        ".tif",
+        ".tiff",
+        ".heic",
+        ".pdf",
+        ".ipynb",
+    }
+)
 REASON = (
     "{path} is unchanged since you read it earlier in this conversation (same lines). "
     "If that earlier result is still visible to you, use it. "

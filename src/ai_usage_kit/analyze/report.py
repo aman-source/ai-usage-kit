@@ -62,14 +62,41 @@ def render_terminal(a: Analysis, top: int = 10) -> str:
 def render_markdown(a: Analysis, top: int = 10) -> str:
     sessions = _top(a, top)
     lines = [
-        "# Token usage report", "", LOCAL_ONLY_NOTE, "", _header(a), "",
-        "## Tokens", "", *_tokens(a), "", _counts(a), "",
-        "## Waste", "", EST_NOTE, "", *_waste(a), "",
-        f"## Top {top} sessions", "", *_top_table(sessions), "",
-        *(_session_line(s) for s in sessions), "",
-        "## Tool calls", "", *_tool_table(a), "",
-        "## Findings", "", *_findings(a.findings),
-        "## Parse health", "", _health(a.stats), "",
+        "# Token usage report",
+        "",
+        LOCAL_ONLY_NOTE,
+        "",
+        _header(a),
+        "",
+        "## Tokens",
+        "",
+        *_tokens(a),
+        "",
+        _counts(a),
+        "",
+        "## Waste",
+        "",
+        EST_NOTE,
+        "",
+        *_waste(a),
+        "",
+        f"## Top {top} sessions",
+        "",
+        *_top_table(sessions),
+        "",
+        *(_session_line(s) for s in sessions),
+        "",
+        "## Tool calls",
+        "",
+        *_tool_table(a),
+        "",
+        "## Findings",
+        "",
+        *_findings(a.findings),
+        "## Parse health",
+        "",
+        _health(a.stats),
+        "",
     ]
     return "\n".join(lines)
 
@@ -130,8 +157,17 @@ def _top_table(sessions: Sequence[Session]) -> list[str]:
         )
         for s in sessions
     ]
-    headers = ["project", "session", "date", "prompts", "api calls", "compactions", "total tokens",
-               "first-call context", "peak context"]
+    headers = [
+        "project",
+        "session",
+        "date",
+        "prompts",
+        "api calls",
+        "compactions",
+        "total tokens",
+        "first-call context",
+        "peak context",
+    ]
     return table(headers, rows)
 
 

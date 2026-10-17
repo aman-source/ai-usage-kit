@@ -61,8 +61,22 @@ def main() -> int:
         {"matcher": "Read", "hooks": [{"type": "command", "command": record, "timeout": 10}]}
     )
     (tmp / "settings.json").write_text(json.dumps({"hooks": hooks}, indent=2), encoding="utf-8")
-    args = [claude, "-p", PROMPT, "--settings", str(tmp / "settings.json"), "--output-format", "text",
-            "--allowedTools", "Read", "Edit", "Agent", "--max-turns", "16", "--no-session-persistence"]
+    args = [
+        claude,
+        "-p",
+        PROMPT,
+        "--settings",
+        str(tmp / "settings.json"),
+        "--output-format",
+        "text",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Agent",
+        "--max-turns",
+        "16",
+        "--no-session-persistence",
+    ]
     run = subprocess.run(
         args, cwd=project, capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL
     )
@@ -72,8 +86,10 @@ def main() -> int:
     denials = read_counts(state.counts_file(state_dir), time.time())[0]
     checks = {
         "second unchanged read was denied exactly once": denials == 1,
-        "retry after the denial and read after the edit succeeded (3 main-conversation reads)":
-            len([r for r in reads if not r.get("agent")]) == 3,
+        "retry after the denial and read after the edit succeeded (3 main-conversation reads)": len(
+            [r for r in reads if not r.get("agent")]
+        )
+        == 3,
         "a subagent re-reading the same unchanged file was not blocked": any(r.get("agent") for r in reads),
         "Claude reported step 2 as blocked": "block" in reply.lower(),
         "the edit happened": "BETA" in notes.read_text(encoding="utf-8"),

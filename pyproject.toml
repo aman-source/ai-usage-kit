@@ -19,14 +19,31 @@ build-backend = "uv_build"
 [tool.ruff]
 line-length = 110
 target-version = "py311"
+extend-exclude = ["tests/navigate/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Graph engine and its answer-key tests: dense code with long lines and one-line statements.
+"src/ai_usage_kit/navigate/graph/**" = ["E501", "E701", "E702", "SIM", "B", "UP", "I"]
+"tests/navigate/test_engine.py" = ["E501"]
+"tests/navigate/test_flask.py" = ["E501"]
 
 [tool.mypy]
 strict = true
 python_version = "3.11"
 files = ["src", "tests"]
+exclude = ["tests/navigate/fixtures/"]
+
+[[tool.mypy.overrides]]
+module = ["ai_usage_kit.navigate.graph.*", "tests.navigate.test_engine", "tests.navigate.test_flask"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = [".*", "build", "dist", "*.egg", "venv", "fixtures"]

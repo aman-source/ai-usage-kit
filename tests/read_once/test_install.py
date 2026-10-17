@@ -26,7 +26,17 @@ def _hooks(ctx: Context) -> dict[str, object]:
 
 def test_items() -> None:
     assert ITEM_IDS == (
-        "compact", "effort", "deny-reads", "deny-deps", "cache", "trim", "read-once", "concise", "minimal",
+        "compact",
+        "effort",
+        "deny-reads",
+        "deny-deps",
+        "cache",
+        "trim",
+        "read-once",
+        "concise",
+        "minimal",
+        "navigate",
+        "subagent-model",
     )
 
 
@@ -34,7 +44,9 @@ def test_groups() -> None:
     groups = hook_groups(RO)
     assert RO == '"C:/Users/dev/.local/bin/eai.exe" hook read-once'
     assert {e: g["matcher"] for e, g in groups.items()} == {
-        "PreToolUse": "Read", "PostToolUse": "Read", "SessionStart": "compact|clear",
+        "PreToolUse": "Read",
+        "PostToolUse": "Read",
+        "SessionStart": "compact|clear",
     }
     assert all(g["hooks"] == [{"type": "command", "command": RO, "timeout": 10}] for g in groups.values())
 

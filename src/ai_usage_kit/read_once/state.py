@@ -20,7 +20,11 @@ from ai_usage_kit.hook_files import safe_id, write_private
 
 KEEP_DAYS = 7
 _FIELDS: dict[str, type | tuple[type, ...]] = {
-    "size": int, "mtime": int, "sha256": str, "at": (int, float), "denied": bool,
+    "size": int,
+    "mtime": int,
+    "sha256": str,
+    "at": (int, float),
+    "denied": bool,
 }
 _PENDING_FIELDS: dict[str, type | tuple[type, ...]] = {"size": int, "mtime": int, "sha256": str}
 

@@ -12,7 +12,10 @@ wherever it sits, and drop a hook group only when that leaves it empty.
   `uv pip install`, `npm i…` (install, i, ci), `npm ci`, `npm run …`, `./gradlew …`, `gradlew …`,
   `gradlew.bat …`, `gradle …`. Claude Code starts the hook only for these same prefixes (the hook entry's `if`
   rules are generated from the same list), so the two never disagree. Commands with `VAR=value` in front or a path
-  such as `.venv/bin/pytest` are not trimmed.
+  such as `.venv/bin/pytest` are not trimmed. One exception to the no-`&` rule: a single leading `cd PATH &&`
+  (plain or quoted path, no `$`), as in `cd src && pytest -q`; the rest must qualify on its own. A successful
+  `cd` prints nothing, so the output is still that of one command; Claude Code checks each part of a chain
+  against the `if` rules, so the hook already runs for it.
 - Pytest runs that ask to see more than results are left alone: `-s`, `-l`, `-V`, `-h` (also inside clusters
   such as `-vs`), `-r` with `A` or `P` (`-rA`, `-r A`), `--capture*`, `--collect-only`, `--co`, `--durations*`,
   `--fixtures*`, `--setup*`, `--log-cli*`, `-o log_cli=…`, `--cov*`, `--benchmark*`,

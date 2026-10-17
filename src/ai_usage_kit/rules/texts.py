@@ -1,4 +1,4 @@
-"""The contents of the rule files `eai on concise` and `eai on minimal` install.
+"""The contents of the rule files `eai on concise`, `eai on minimal` and `eai on navigate` install.
 
 ASCII only and small: Claude Code loads them into every session's context.
 """
@@ -74,4 +74,18 @@ Then use the first of these that solves the task completely:
 
 Finish every reply that changes code with one or two lines: what you left out or did not verify, and any risk
 the user should know about. These lines come in addition to any other closing line.
+"""
+
+NAVIGATE = """\
+# Code navigation (ai-usage-kit navigate)
+Installed by ai-usage-kit. Remove with: eai off navigate
+
+In Python git repositories, to find where a symbol is defined, who uses it, or what a change affects,
+run these before Grep. They answer from a local code graph in one call:
+- eai navigate where NAME      definition with its line span; NAME may be a|b|c or a pattern like *price*
+- eai navigate who-uses NAME   callers as path:line; add --depth 2 for callers of callers
+- eai navigate impact NAME     affected files and tests (or: git diff | eai navigate impact --diff -)
+- eai navigate outline PATH    definitions in a file, without reading it
+Then Read only the returned lines with offset/limit, not the whole file.
+If the answer says stale or not found, or the code is not Python, use Grep and Read.
 """

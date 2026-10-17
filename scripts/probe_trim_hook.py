@@ -53,9 +53,10 @@ def main() -> int:
         "hooks": {
             "PostToolUse": [
                 {"matcher": "Bash", "hooks": [{"type": "command", "command": record, "timeout": 10}]},
-                {"matcher": "Bash", "hooks": [
-                    {"type": "command", "if": "Bash(pytest*)", "command": trim, "timeout": 10}
-                ]},
+                {
+                    "matcher": "Bash",
+                    "hooks": [{"type": "command", "if": "Bash(pytest*)", "command": trim, "timeout": 10}],
+                },
             ],
             "PostToolUseFailure": [
                 {"matcher": "Bash", "hooks": [{"type": "command", "command": record, "timeout": 10}]}
@@ -70,8 +71,19 @@ def main() -> int:
         "first `pytest -v tests/test_pass.py`, then `pytest -v tests/test_fail.py`. "
         "Then reply with the last two lines of the first command's output exactly as you saw them."
     )
-    args = [claude, "-p", prompt, "--settings", str(tmp / "settings.json"), "--output-format", "json",
-            "--allowedTools", "Bash(pytest *)", "--max-turns", "6"]
+    args = [
+        claude,
+        "-p",
+        prompt,
+        "--settings",
+        str(tmp / "settings.json"),
+        "--output-format",
+        "json",
+        "--allowedTools",
+        "Bash(pytest *)",
+        "--max-turns",
+        "6",
+    ]
     help_text = subprocess.run([claude, "--help"], capture_output=True, text=True).stdout
     if "--no-session-persistence" in help_text:
         args.append("--no-session-persistence")

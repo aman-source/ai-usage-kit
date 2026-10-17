@@ -17,7 +17,10 @@ def _read(
     event: str, path: Path, session: str = "s", agent: str | None = None, **tool: Any
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "session_id": session, "hook_event_name": event, "tool_name": "Read", "cwd": str(path.parent),
+        "session_id": session,
+        "hook_event_name": event,
+        "tool_name": "Read",
+        "cwd": str(path.parent),
         "tool_input": {"file_path": str(path), **tool},
     }
     if agent:
@@ -136,8 +139,12 @@ def test_corrupt_state_never_denies(tmp_path: Path, code: Path) -> None:
 
 @pytest.mark.parametrize(
     "payload",
-    [{}, {"hook_event_name": "PreToolUse", "tool_name": "Bash"}, {"hook_event_name": "PreToolUse",
-     "tool_name": "Read"}, {"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": "x"}],
+    [
+        {},
+        {"hook_event_name": "PreToolUse", "tool_name": "Bash"},
+        {"hook_event_name": "PreToolUse", "tool_name": "Read"},
+        {"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": "x"},
+    ],
 )
 def test_other_inputs_say_nothing(tmp_path: Path, payload: dict[str, Any]) -> None:
     assert handle(payload, tmp_path, NOW) is None
@@ -155,8 +162,9 @@ def test_no_content_is_stored(tmp_path: Path, code: Path) -> None:
     assert "hello" not in stored
 
 
-def test_cli_hook(tmp_path: Path, code: Path, monkeypatch: pytest.MonkeyPatch,
-                  capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+def test_cli_hook(
+    tmp_path: Path, code: Path, monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]
+) -> None:
     import io
     import sys
 

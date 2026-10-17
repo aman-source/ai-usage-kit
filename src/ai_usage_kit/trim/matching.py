@@ -1,6 +1,7 @@
 """Decide whether a shell command qualifies for trimming, and with which filter.
 
-Only a single, simple invocation qualifies: no pipes, redirects, command chains or substitutions.
+Only a single, simple invocation qualifies: no pipes, redirects, command chains or substitutions. The one
+exception is a single leading `cd PATH &&` (Claude often runs commands that way); the rest must qualify alone.
 Pytest runs that ask to see something other than results (captured output, collection, durations,
 help) never qualify.
 """
@@ -21,18 +22,40 @@ from ai_usage_kit.trim.filters.uv import filter_uv_install
 # A command qualifies only if it starts with one of these. Claude Code starts the hook for the same
 # prefixes (see trim.install.IF_RULES), so the two can never disagree.
 PREFIXES = (
-    "pytest", "py.test", "python -m pytest", "python3 -m pytest", "py -m pytest", "uv run pytest",
-    "uv sync", "uv pip install", "npm i", "npm ci", "npm run ", "./gradlew ", "gradlew ", "gradlew.bat ",
+    "pytest",
+    "py.test",
+    "python -m pytest",
+    "python3 -m pytest",
+    "py -m pytest",
+    "uv run pytest",
+    "uv sync",
+    "uv pip install",
+    "npm i",
+    "npm ci",
+    "npm run ",
+    "./gradlew ",
+    "gradlew ",
+    "gradlew.bat ",
     "gradle ",
 )
 SHELL_SYNTAX = ("|", "&", ";", ">", "<", "`", "$(", "\n")
+# `cd PATH && ` with one plain or quoted path and no expansions. Claude Code checks each part of a chain
+# against the hook's `if` rule, so the hook already runs for `cd src && pytest`.
+LEADING_CD = re.compile(r"""cd +(?:"[^"$`\\]*"|'[^']*'|[^\s"'|&;<>`$()\\]+) +&& +""")
 PYTHON = re.compile(r"python(3(\.\d+)?)?(\.exe)?|py(\.exe)?")
 PYTEST_EXACT_SKIP = frozenset(
     {"--co", "--help", "--version", "--showlocals", "--pdb", "--trace", "--markers"}
 )
 PYTEST_PREFIX_SKIP = (
-    "--capture", "--collect-only", "--durations", "--fixtures", "--setup", "--log-cli", "--cov",
-    "--benchmark", "--hypothesis-show-statistics",
+    "--capture",
+    "--collect-only",
+    "--durations",
+    "--fixtures",
+    "--setup",
+    "--log-cli",
+    "--cov",
+    "--benchmark",
+    "--hypothesis-show-statistics",
 )
 # Short options that show more than results: -s (output), -l (locals), -V (version), -h (help).
 PYTEST_SHOW_LETTERS = frozenset("slVh")
@@ -49,6 +72,9 @@ class Match:
 
 
 def match_command(command: str) -> Match | None:
+    leading_cd = LEADING_CD.match(command)
+    if leading_cd:
+        command = command[leading_cd.end() :]
     if not command.startswith(PREFIXES) or any(token in command for token in SHELL_SYNTAX):
         return None
     try:

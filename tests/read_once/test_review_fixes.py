@@ -20,8 +20,12 @@ EXE = "C:\\Users\\dev\\.local\\bin\\eai.exe"
 
 def _read(event: str, path: Path, tool_use_id: str, agent: str | None = None) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "session_id": "s", "hook_event_name": event, "tool_name": "Read", "tool_use_id": tool_use_id,
-        "cwd": str(path.parent), "tool_input": {"file_path": str(path)},
+        "session_id": "s",
+        "hook_event_name": event,
+        "tool_name": "Read",
+        "tool_use_id": tool_use_id,
+        "cwd": str(path.parent),
+        "tool_input": {"file_path": str(path)},
     }
     if agent:
         payload["agent_id"] = agent

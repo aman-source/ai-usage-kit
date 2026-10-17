@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -25,6 +26,7 @@ from ai_usage_kit.defaults.items import (
     get_item,
     hook_installed,
     remove_item,
+    version_key,
 )
 from ai_usage_kit.defaults.managed import Managed
 from ai_usage_kit.defaults.settings import (
@@ -50,8 +52,8 @@ HOOK_GROUPS = {"trim": trim_install.hook_groups, "read-once": read_once_install.
 EFFORT_TIP = "Effort: change it any time with /effort in Claude Code, or start with: claude --effort high"
 UNDO_TIP = "Undo everything with: eai uninstall"
 INSTALL_TIP = (
-    "error: this item needs eai installed permanently (a project .venv or uvx copy would break later); "
-    "run: uv tool install ai-usage-kit"
+    "error: this item needs eai installed permanently and on PATH (a project .venv or uvx copy would break "
+    "later); run: uv tool install ai-usage-kit, then uv tool update-shell and open a new terminal"
 )
 UNBLOCK_TIP = "If Claude needs to read a blocked folder, turn that item off, e.g.: eai off deny-reads"
 CHANGED = (
@@ -77,6 +79,7 @@ class Context:
     managed: Managed
     cwd: Path
     eai_path: str | None = None
+    claude_code_version: str | None = None  # newest seen in local session logs, if known
 
     @property
     def settings_path(self) -> Path:
@@ -123,22 +126,30 @@ def init(ctx: Context, dry_run: bool = False) -> Result:
         if item.id in state.applied:
             record = state.applied[item.id]
             if "rule_sha256" in record:
+                note = ""
+                if "allow_key" in record and _presence(new, _allow_sub(record)) == "missing":
+                    change = apply_item(new, _allow_item(item), ctx.managed)
+                    new = change.settings
+                    if change.record is not None:
+                        record = {**record, **_allow_fields(change.record, record)}
+                        state.applied[item.id] = record
+                    note = "; would restore its allow rules" if dry_run else "; restored its allow rules"
                 rule_state = _rule_state(ctx, record)
                 current = _rule_record(item)
                 if rule_state == "changed":
-                    result.lines.append(_line(item, "on; you changed its file, eai leaves it as is"))
+                    result.lines.append(_line(item, f"on; you changed its file, eai leaves it as is{note}"))
                     continue
-                if rule_state == "present" and record == current:
-                    result.lines.append(_line(item, "on"))
+                if rule_state == "present" and record["rule_sha256"] == current["rule_sha256"]:
+                    result.lines.append(_line(item, f"on{note}"))
                     continue
-                state.applied[item.id] = current
+                state.applied[item.id] = {**record, **current}
                 rules_to_write.append(item)
                 if rule_state == "missing":
                     verb = "would restore" if dry_run else "restored"
-                    result.lines.append(_line(item, f"on ({verb}: the file was missing)"))
+                    result.lines.append(_line(item, f"on ({verb}: the file was missing){note}"))
                 else:
                     verb = "would update" if dry_run else "updated"
-                    result.lines.append(_line(item, f"on ({verb} to the current text)"))
+                    result.lines.append(_line(item, f"on ({verb} to the current text){note}"))
                 continue
             if _presence(new, record) != "missing":
                 result.lines.append(_line(item, "on"))
@@ -173,6 +184,15 @@ def status(ctx: Context) -> Result:
     state = _load_state(ctx)
     result = Result([f"Settings file: {ctx.settings_path}"])
     result.lines += [_line(item, _status_text(ctx, settings, state, item)) for item in ITEMS]
+    from ai_usage_kit.navigate import store as navigate_store
+
+    navigate_store.prune(ctx.environ, ctx.home, time.time())  # graphs of repos that are gone or unused
+    if "navigate" in state.applied:
+        from ai_usage_kit.navigate.install import graph_status
+
+        graph = graph_status(ctx.cwd, ctx.environ, ctx.home, time.time())
+        if graph:
+            result.lines.append(_label("", graph))
     if ctx.managed.sources:
         result.lines.append("Organization settings found: " + ", ".join(ctx.managed.sources))
     unreadable = ctx.managed.unreadable
@@ -204,8 +224,33 @@ def turn_on(ctx: Context, item_id: str, dry_run: bool = False) -> Result:
     state = _load_state(ctx)
     if item.id in state.applied:
         return Result([_line(item, "already on")])
+    if item.needs_eai_on_path and ctx.eai_path is None:
+        return Result([INSTALL_TIP], 1)
+    if item.allow_rules and ctx.managed.get("allowManagedPermissionRulesOnly") is True:
+        return Result(
+            [
+                f"error: {item.id} cannot run: your organization allows only its own permission rules; "
+                "Claude would ask before each navigate command"
+            ],
+            1,
+        )
     if item.rule_file:
         return _turn_on_rule(ctx, item, settings, state, snapshot, dry_run)
+    if item.env_name and ctx.environ.get(item.env_name, "").strip() and not ctx.managed.sets(item.key):
+        return Result([_line(item, f"skipped: you already set {item.env_name} in your environment")])
+    if (
+        item.min_claude_code
+        and ctx.claude_code_version
+        and (version_key(ctx.claude_code_version) < version_key(item.min_claude_code))
+    ):
+        return Result(
+            [
+                f"error: {item.id} needs Claude Code {item.min_claude_code} or later (found "
+                f"{ctx.claude_code_version}); older versions let this setting override agents that chose "
+                "their own model. Update Claude Code, then run again."
+            ],
+            1,
+        )
     if item.needs_api_billing and api_billing(ctx.environ, settings) is None:
         message = f"error: {item.id} only helps with API-key or cloud-provider billing; none was detected"
         return Result([message], 1)
@@ -240,6 +285,8 @@ def turn_off(ctx: Context, item_id: str, dry_run: bool = False) -> Result:
         result.lines.append(_line(item, "off (it was not on)"))
     elif "rule_sha256" in record:
         path = _rule_path(ctx, record["key"])
+        if "allow_key" in record:
+            new = remove_item(new, _allow_sub(record)).settings
         if _rule_state(ctx, record) == "changed":
             result.lines.append(_line(item, f"{off}; kept your edited file {path}"))
         else:
@@ -252,12 +299,15 @@ def turn_off(ctx: Context, item_id: str, dry_run: bool = False) -> Result:
         result.lines.append(_line(item, f"{off}; kept your own {item.key} value" if kept else off))
     if item.id not in state.off:
         state.off.append(item.id)
+    new = _prune_created_parents(ctx, new)
     if not dry_run:
         _commit(ctx, settings, new, state, snapshot)  # state first, then the file
         if rule_to_delete is not None:
             rule_to_delete.unlink(missing_ok=True)
         if item.needs_hook_command:
             _delete_saved_outputs(ctx, item.id)
+    if item.id == "navigate":
+        result.lines += _navigate_cleanup(ctx, dry_run)
     return result
 
 
@@ -272,6 +322,8 @@ def uninstall(ctx: Context, dry_run: bool = False) -> Result:
     rules_to_delete: list[Path] = []
     for item_id, record in reversed(list(state.applied.items())):
         if "rule_sha256" in record:
+            if "allow_key" in record:
+                new = remove_item(new, _allow_sub(record)).settings
             path = _rule_path(ctx, record["key"])
             rule_state = _rule_state(ctx, record)
             if rule_state == "changed":
@@ -289,14 +341,56 @@ def uninstall(ctx: Context, dry_run: bool = False) -> Result:
         result.lines.append(_label(item_id, text))
     if not dry_run:
         _check_unchanged(ctx, snapshot)
+    result.lines += _navigate_cleanup(ctx, dry_run)  # before the state folder (and its records) goes
+    new = _prune_created_parents(ctx, new)
     result.lines.append(_finish_uninstall(ctx, settings, new, dry_run))
     if not dry_run:
         for path in rules_to_delete:
             path.unlink(missing_ok=True)
             with contextlib.suppress(OSError):
                 path.parent.rmdir()  # only when eai's files were the last ones in it
-        shutil.rmtree(ctx.state_dir)
+        if not _remove_tree(ctx.state_dir):
+            note = f"note: some files in {ctx.state_dir} are in use (a graph build?); delete the folder later"
+            result.lines.append(note)
     return result
+
+
+def _remove_tree(path: Path) -> bool:
+    """Delete a folder; files still in use (Windows) are left. True when everything went."""
+
+    def keep_going(func: Any, target: str, _exc: object) -> None:
+        with contextlib.suppress(OSError):
+            os.chmod(target, 0o700)
+            func(target)
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=keep_going)
+    else:  # pragma: no cover - Python 3.11
+        shutil.rmtree(path, onerror=keep_going)
+    return not path.exists()
+
+
+# Parents eai items may create (permissions for the deny/allow lists, env for subagent-model, hooks).
+CREATED_PARENTS = ("permissions", "env", "hooks")
+
+
+def _prune_created_parents(ctx: Context, settings: Settings) -> Settings:
+    """Drop an empty parent object that did not exist before eai's first change (judged from the backup).
+
+    Per-record flags cannot know about siblings: deny-reads may create `permissions` and navigate add
+    `permissions.allow` beside it; whichever is turned off last must not leave `"permissions": {}` behind.
+    """
+    if ctx.absent_marker.exists():
+        before: Settings = {}
+    elif ctx.backup_path.exists():
+        parsed = _parse(ctx.backup_path.read_bytes())
+        if parsed is None:
+            return settings
+        before = parsed
+    else:
+        return settings
+    empty = [k for k in CREATED_PARENTS if settings.get(k) == {} and k not in before]
+    return {k: v for k, v in settings.items() if k not in empty} if empty else settings
 
 
 def _finish_uninstall(ctx: Context, settings: Settings, new: Settings, dry_run: bool) -> str:
@@ -350,6 +444,9 @@ def _status_text(ctx: Context, settings: Settings, state: _State, item: Item) ->
             return "on in eai's records but the file is missing; restore it with: eai init"
         if rule_state == "changed":
             return f"you changed {_rule_path(ctx, item.key)} after install; eai leaves it as is"
+        record = state.applied[item.id]
+        if "allow_key" in record and _presence(settings, _allow_sub(record)) == "missing":
+            return "on in eai's records but its allow rules are missing; restore them with: eai init"
         return f"on: {item.summary}"
     if item.id in state.applied:
         presence = _presence(settings, state.applied[item.id])
@@ -360,6 +457,8 @@ def _status_text(ctx: Context, settings: Settings, state: _State, item: Item) ->
         return f"on: {item.summary}{_override_note(settings, item)}"
     if item.id in state.off:
         return f"off (turn on with: eai on {item.id})"
+    if item.env_name and ctx.environ.get(item.env_name, "").strip() and not ctx.managed.sets(item.key):
+        return f"skipped: you already set {item.env_name} in your environment"
     if not item.default_on and not item.needs_api_billing:
         return f"off: opt-in, turn on with: eai on {item.id}"
     if item.needs_api_billing:
@@ -382,7 +481,7 @@ def _rule_path(ctx: Context, key: str) -> Path:
 
 
 def _rule_state(ctx: Context, record: dict[str, Any]) -> str:
-    """"present", "missing" or "changed" for a rule file eai wrote."""
+    """ "present", "missing" or "changed" for a rule file eai wrote."""
     try:
         current = _rule_path(ctx, record["key"]).read_bytes()
     except FileNotFoundError:
@@ -417,16 +516,65 @@ def _turn_on_rule(
         current = b""  # a folder or an unreadable file: someone else's; refuse below
     if current is not None and current != data:
         return Result([f"error: {path} already exists with other content; eai leaves it alone"], 1)
-    state.applied[item.id] = {"key": item.key, "rule_sha256": hashlib.sha256(data).hexdigest()}
+    record: dict[str, Any] = {"key": item.key, "rule_sha256": hashlib.sha256(data).hexdigest()}
+    new = settings
+    if item.allow_rules:
+        change = apply_item(settings, _allow_item(item), ctx.managed)
+        new = change.settings
+        if change.record is not None:
+            record.update(_allow_fields(change.record, {}))
+    state.applied[item.id] = record
     if item.id in state.off:
         state.off.remove(item.id)
     verb = "would turn on" if dry_run else "on"
     result = Result([*([DRY_RUN] if dry_run else []), _line(item, f"{verb}: {item.summary}; file {path}")])
+    if item.id == "navigate":
+        hint = "run `eai navigate hooks on` in each repo to refresh its graph after git pull"
+        result.lines.append(_label("", hint))
     if not dry_run:
-        _commit(ctx, settings, settings, state, snapshot)  # state first, then the file
+        _commit(ctx, settings, new, state, snapshot)  # state first, then the file
         if current is None:
             write_atomic(path, data)
     return result
+
+
+def _allow_item(item: Item) -> Item:
+    """The permissions.allow part of a rule-file item, as a list item for the shared list logic."""
+    return replace(item, key="permissions.allow", value=item.allow_rules, rule_file=False)
+
+
+def _allow_fields(list_record: dict[str, Any], old: dict[str, Any]) -> dict[str, Any]:
+    """Allow-rule fields of a rule record, prefixed to stay apart from list records; first flags win."""
+    earlier = [r for r in old.get("allow_added", []) if isinstance(r, str)]
+    added = earlier + [r for r in list_record["added"] if r not in earlier]
+    return {
+        "allow_key": list_record["key"],
+        "allow_added": added,
+        "allow_created": bool(old.get("allow_created", list_record["created"])),
+        "allow_created_parent": bool(old.get("allow_created_parent", list_record["created_parent"])),
+    }
+
+
+def _allow_sub(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "key": record["allow_key"],
+        "added": list(record.get("allow_added", [])),
+        "created": bool(record.get("allow_created")),
+        "created_parent": bool(record.get("allow_created_parent")),
+    }
+
+
+def _navigate_cleanup(ctx: Context, dry_run: bool) -> list[str]:
+    """Hooks eai added to repos and all navigate graphs (they live outside the settings file)."""
+    from ai_usage_kit.navigate import install, store
+
+    known = install.recorded_repos(ctx.environ, ctx.home)
+    graphs = store.graphs_root(ctx.environ, ctx.home).exists()
+    if not known and not graphs:
+        return []
+    if dry_run:
+        return [_label("navigate", f"would remove hooks from {len(known)} repos and delete all graphs")]
+    return install.remove_everything(ctx.environ, ctx.home)
 
 
 def _hook_block(ctx: Context, settings: Settings) -> str | None:
@@ -464,7 +612,7 @@ def _line(item: Item, text: str) -> str:
 
 
 def _presence(settings: Settings, record: dict[str, Any]) -> str:
-    """"present", "missing" or "changed": does settings.json still hold what eai added?"""
+    """ "present", "missing" or "changed": does settings.json still hold what eai added?"""
     if "hook_command" in record:
         command = record["hook_command"]
         events = record.get("events")
@@ -487,6 +635,8 @@ def _merge_records(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
         created = list(dict.fromkeys([*old.get("created_events", []), *new.get("created_events", [])]))
         parent = bool(old.get("created_parent")) or bool(new.get("created_parent"))
         return {**new, "created_events": created, "created_parent": parent}
+    if "value" in old:
+        return {**new, "created_parent": bool(old.get("created_parent")) or bool(new.get("created_parent"))}
     if "added" not in old:
         return new
     added = list(old["added"]) + [rule for rule in new["added"] if rule not in old["added"]]

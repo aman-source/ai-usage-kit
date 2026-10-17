@@ -84,7 +84,11 @@ def test_daemon_lines_stripped() -> None:
 
 
 def test_build_scan_url_kept() -> None:
-    kept = "\n".join(_kept("> Task :app:assembleDebug\nBUILD SUCCESSFUL in 5s\nPublishing build scan...\nhttps://gradle.com/s/abc123"))
+    kept = "\n".join(
+        _kept(
+            "> Task :app:assembleDebug\nBUILD SUCCESSFUL in 5s\nPublishing build scan...\nhttps://gradle.com/s/abc123"
+        )
+    )
     assert "gradle.com/s/" in kept
 
 

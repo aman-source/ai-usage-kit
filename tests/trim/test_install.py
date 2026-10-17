@@ -25,7 +25,17 @@ def _settings(ctx: Context) -> dict[str, object]:
 
 def test_item_list() -> None:
     assert ITEM_IDS == (
-        "compact", "effort", "deny-reads", "deny-deps", "cache", "trim", "read-once", "concise", "minimal",
+        "compact",
+        "effort",
+        "deny-reads",
+        "deny-deps",
+        "cache",
+        "trim",
+        "read-once",
+        "concise",
+        "minimal",
+        "navigate",
+        "subagent-model",
     )
 
 
@@ -68,6 +78,7 @@ def test_on_trim_needs_a_permanent_install(tmp_path: Path) -> None:
     result = turn_on(ctx, "trim")
     assert result.code == 1
     assert "uv tool install ai-usage-kit" in result.lines[0]
+    assert "uv tool update-shell" in result.lines[0]  # installed but not on PATH gives the same refusal
     assert not ctx.settings_path.exists()
 
 

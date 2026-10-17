@@ -13,10 +13,25 @@ Record = dict[str, Any]
 # Record types seen in Claude Code 2.1.263-2.1.296 logs. Anything else is counted and skipped.
 KNOWN_TYPES = frozenset(
     {
-        "assistant", "user", "attachment", "system", "summary", "queue-operation", "atis-latch",
-        "last-prompt", "bridge-session", "ai-title", "mode", "pr-link", "file-history-delta",
-        "frame-link", "file-history-snapshot", "artifact-autoreact-ledger", "artifact-comment-monitor",
-        "cost-state", "teleported-from",
+        "assistant",
+        "user",
+        "attachment",
+        "system",
+        "summary",
+        "queue-operation",
+        "atis-latch",
+        "last-prompt",
+        "bridge-session",
+        "ai-title",
+        "mode",
+        "pr-link",
+        "file-history-delta",
+        "frame-link",
+        "file-history-snapshot",
+        "artifact-autoreact-ledger",
+        "artifact-comment-monitor",
+        "cost-state",
+        "teleported-from",
     }
 )
 

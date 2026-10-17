@@ -15,7 +15,7 @@ FIX = {
     "large-tool-output": "trim",
     "cache-rebuild": "defaults",
     "big-instructions": "defaults",
-    "many-mcp": "defaults (mcp-diet if justified)",
+    "many-mcp": "eai mcp",
     "long-session": "defaults",
 }
 RULES = tuple(FIX)
@@ -221,7 +221,12 @@ def big_instructions(
         if lines > t.instruction_lines:
             size = len(text.encode("utf-8"))
             findings.append(
-                Finding("big-instructions", "", "", None,
-                        f"{path}: {lines} lines, {size:,} bytes (size on disk today)")
+                Finding(
+                    "big-instructions",
+                    "",
+                    "",
+                    None,
+                    f"{path}: {lines} lines, {size:,} bytes (size on disk today)",
+                )
             )
     return findings

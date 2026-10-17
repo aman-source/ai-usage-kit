@@ -40,8 +40,9 @@ def test_repeated_read_fires_on_second_identical_read() -> None:
 
 def test_edit_between_reads_resets() -> None:
     edit = [
-        assistant("e", minutes=1.5,
-                  content=[tool_use("te", "Edit", file_path=PATH, old_string="a", new_string="b")]),
+        assistant(
+            "e", minutes=1.5, content=[tool_use("te", "Edit", file_path=PATH, old_string="a", new_string="b")]
+        ),
     ]
     s = build_session("p", "s", [(MAIN, _read(1) + edit + _read(2))])
     assert repeated_read(s, T) == []

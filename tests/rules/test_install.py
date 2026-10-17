@@ -22,7 +22,7 @@ def _line(ctx: Context, item: str) -> str:
 
 
 def test_items() -> None:
-    assert ITEM_IDS[-2:] == ("concise", "minimal")
+    assert ITEM_IDS[-4:-2] == ("concise", "minimal")
 
 
 def test_opt_in(tmp_path: Path) -> None:
@@ -122,5 +122,7 @@ def test_record_stores_hash_only(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
     turn_on(ctx, "concise")
     record = json.loads(ctx.state_path.read_text(encoding="utf-8"))["applied"]["concise"]
-    assert record == {"key": "rules/eai-concise.md",
-                      "rule_sha256": hashlib.sha256(CONCISE.encode("utf-8")).hexdigest()}
+    assert record == {
+        "key": "rules/eai-concise.md",
+        "rule_sha256": hashlib.sha256(CONCISE.encode("utf-8")).hexdigest(),
+    }

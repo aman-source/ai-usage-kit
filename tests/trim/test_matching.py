@@ -38,7 +38,7 @@ def test_qualifying_commands(command: str, name: str) -> None:
         "pytest > out.txt",
         "pytest $(cat args)",
         "pytest `cat args`",
-        "cd x && npm install",
+        "cd x && npm install && npm test",
         "pytest -s",
         "pytest --capture=no",
         "pytest --collect-only",
@@ -67,4 +67,37 @@ def test_qualifying_commands(command: str, name: str) -> None:
     ],
 )
 def test_non_qualifying_commands(command: str) -> None:
+    assert match_command(command) is None
+
+
+@pytest.mark.parametrize(
+    ("command", "name"),
+    [
+        ("cd src && pytest -q", "pytest"),
+        ('cd "C:/work/my repo" && uv run pytest tests', "pytest"),
+        ("cd 'my dir' && npm ci", "npm"),
+        ("cd /repo/app  &&  ./gradlew build", "gradle"),
+    ],
+)
+def test_one_leading_cd_is_allowed(command: str, name: str) -> None:
+    found = match_command(command)
+    assert found is not None and found.name == name
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd src && pytest -q | tail",
+        "cd src && cd tests && pytest",
+        "cd src; pytest",
+        "cd src || pytest",
+        "cd $(mktemp -d) && pytest",
+        'cd "$HOME" && pytest',
+        "cd src && pytest -s",
+        "cd src && git status",
+        "cd && pytest",
+        "pytest && cd src",
+    ],
+)
+def test_other_chains_with_cd_are_not_trimmed(command: str) -> None:
     assert match_command(command) is None

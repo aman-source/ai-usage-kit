@@ -112,7 +112,17 @@ def test_uninstall_undoes_items_from_an_older_version(tmp_path: Path) -> None:
 # Important 6: defaults must not block reading dependencies or lock files.
 def test_default_deny_rules_only_cover_generated_output() -> None:
     assert ITEM_IDS == (
-        "compact", "effort", "deny-reads", "deny-deps", "cache", "trim", "read-once", "concise", "minimal",
+        "compact",
+        "effort",
+        "deny-reads",
+        "deny-deps",
+        "cache",
+        "trim",
+        "read-once",
+        "concise",
+        "minimal",
+        "navigate",
+        "subagent-model",
     )
     default = get_item("deny-reads").value
     moved = ("Read(node_modules/**)", "Read(.venv/**)", "Read(vendor/**)", "Read(build/**)", "Read(uv.lock)")

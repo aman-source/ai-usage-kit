@@ -102,8 +102,14 @@ def test_non_ascii_project_on_cp1252_console(
 def no_org(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """No organization settings and no billing env vars; cwd is an empty temp project."""
     monkeypatch.setattr(cli, "system_managed", lambda: Managed())
-    for name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
-                 "CLAUDE_CODE_USE_FOUNDRY", "CLAUDE_CODE_USE_ANTHROPIC_AWS", "CLAUDE_CODE_USE_MANTLE"):
+    for name in (
+        "ANTHROPIC_API_KEY",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "CLAUDE_CODE_USE_VERTEX",
+        "CLAUDE_CODE_USE_FOUNDRY",
+        "CLAUDE_CODE_USE_ANTHROPIC_AWS",
+        "CLAUDE_CODE_USE_MANTLE",
+    ):
         monkeypatch.delenv(name, raising=False)
     project = tmp_path / "project"
     project.mkdir()
@@ -143,7 +149,44 @@ def test_on_cache_without_api_billing_fails(no_org: Path, capsys: pytest.Capture
     assert "none was detected" in capsys.readouterr().err
 
 
+def test_on_subagent_model_refuses_old_claude_code(no_org: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    log = no_org / ".claude" / "projects" / "p" / "s.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        json.dumps({"type": "user", "version": "2.1.9", "message": {"content": "x"}}) + "\n", encoding="utf-8"
+    )
+    assert main(["on", "subagent-model"]) == 1
+    assert "found 2.1.9" in capsys.readouterr().err
+    assert not (no_org / ".claude" / "settings.json").exists()
+
+
+def test_on_subagent_model_with_recent_claude_code(no_org: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    log = no_org / ".claude" / "projects" / "p" / "s.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        json.dumps({"type": "user", "version": "2.1.263", "message": {"content": "x"}}) + "\n",
+        encoding="utf-8",
+    )
+    assert main(["on", "subagent-model"]) == 0
+    data = json.loads((no_org / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert data["env"]["CLAUDE_CODE_SUBAGENT_MODEL"] == "sonnet"
+
+
 def test_unknown_item_is_rejected() -> None:
     with pytest.raises(SystemExit) as exc:
         main(["off", "everything"])
     assert exc.value.code == 2
+
+
+def test_claude_config_dir_is_where_logs_are_read(
+    no_org: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / "custom-claude"
+    log = config / "projects" / "p" / "s.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        json.dumps({"type": "user", "version": "2.1.9", "message": {"content": "x"}}) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    assert main(["on", "subagent-model"]) == 1
+    assert "found 2.1.9" in capsys.readouterr().err

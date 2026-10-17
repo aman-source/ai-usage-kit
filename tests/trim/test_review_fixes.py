@@ -28,8 +28,14 @@ COMMAND = hook_command_for(EXE)
 
 def _payload(command: str = "pytest -v", stdout: str = PASSING, stderr: str = "") -> dict[str, Any]:
     response = {"stdout": stdout, "stderr": stderr, "interrupted": False, "isImage": False}
-    return {"session_id": "s", "hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_use_id": "t",
-            "tool_input": {"command": command}, "tool_response": response}
+    return {
+        "session_id": "s",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_use_id": "t",
+        "tool_input": {"command": command},
+        "tool_response": response,
+    }
 
 
 def _ctx(tmp_path: Path, command: str | None = COMMAND) -> Context:
@@ -55,10 +61,19 @@ def test_windows_line_endings_are_handled(tmp_path: Path) -> None:
 # Important 2: combined short flags and other "show me more" pytest options are never trimmed.
 @pytest.mark.parametrize(
     "command",
-    ["pytest -vs", "pytest -sv tests", "pytest -vls", "pytest -r A", "pytest -V",
-     "pytest --log-cli-level=INFO",
-     "pytest -o log_cli=true", "pytest --cov=src", "pytest --cov", "pytest --benchmark-only",
-     "pytest --hypothesis-show-statistics"],
+    [
+        "pytest -vs",
+        "pytest -sv tests",
+        "pytest -vls",
+        "pytest -r A",
+        "pytest -V",
+        "pytest --log-cli-level=INFO",
+        "pytest -o log_cli=true",
+        "pytest --cov=src",
+        "pytest --cov",
+        "pytest --benchmark-only",
+        "pytest --hypothesis-show-statistics",
+    ],
 )
 def test_pytest_show_more_flags_never_trim(command: str) -> None:
     assert match_command(command) is None
@@ -99,13 +114,21 @@ SKIPPED [1] tests/test_a.py:9: needs DB_URL
 @pytest.mark.parametrize(
     ("args", "trim"),
     [
-        (["build"], True), (["assembleDebug"], True), ([":app:assembleRelease"], True),
+        (["build"], True),
+        (["assembleDebug"], True),
+        ([":app:assembleRelease"], True),
         (["clean", "build"], True),
-        (["bundleRelease"], True), (["installDebug"], True), (["clean"], True),
-        (["buildEnvironment"], False), (["help", "--task", "build"], False), (["myBuildReport"], False),
-        (["buildHealth"], False), (["test", "-x", "build"], False),
+        (["bundleRelease"], True),
+        (["installDebug"], True),
+        (["clean"], True),
+        (["buildEnvironment"], False),
+        (["help", "--task", "build"], False),
+        (["myBuildReport"], False),
+        (["buildHealth"], False),
+        (["test", "-x", "build"], False),
         (["build", "--warning-mode", "all"], False),
-        (["build", "--warning-mode=all"], False), (["build", "--exclude-task", "test"], True),
+        (["build", "--warning-mode=all"], False),
+        (["build", "--exclude-task", "test"], True),
     ],
 )
 def test_trimmable_build_tasks(args: list[str], trim: bool) -> None:

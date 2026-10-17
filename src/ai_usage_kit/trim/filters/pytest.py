@@ -177,10 +177,7 @@ def _build_summary(summary: str, failures: list[str], xfail_lines: list[str]) ->
         for line in lines[1:]:
             lower = line.lower()
             if (
-                line.strip().startswith((">", "E"))
-                or "assert" in lower
-                or "error" in lower
-                or ".py:" in line
+                line.strip().startswith((">", "E")) or "assert" in lower or "error" in lower or ".py:" in line
             ) and relevant < 3:
                 result += f"     {truncate(line, 100)}\n"
                 relevant += 1

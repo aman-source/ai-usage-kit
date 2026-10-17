@@ -2,7 +2,7 @@
 
 `eai init` applies documented Claude Code settings to the developer's user settings
 (`~/.claude/settings.json`) and `eai uninstall` removes exactly them. Designed for an enterprise setup;
-built and tested on a personal Pro account.
+tested with a Claude Pro subscription.
 
 ## Items (names checked against code.claude.com/docs on 2026-10-16)
 | Item | Setting | Value | Source |
