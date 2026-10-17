@@ -12,7 +12,8 @@ eai init                          # apply them (backup first; exact undo)
 eai status                        # what is on, off, or set by your organization
 eai mcp                           # do MCP servers cost you tokens? (read-only)
 eai navigate who-uses price       # (after eai on navigate) callers from the local code graph
-eai on trim                       # opt-in: trim, read-once, concise, minimal, navigate, subagent-model, deny-deps, cache
+eai on recommended                # opt-in set: trim, read-once, concise, minimal, subagent-model
+eai on navigate                   # other opt-ins one by one when they fit: navigate, deny-deps, cache
 eai uninstall                     # put everything back exactly
 ```
 

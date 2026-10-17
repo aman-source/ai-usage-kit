@@ -37,6 +37,10 @@ Why these choices:
 - `status` checks settings.json, not only eai's own record: it reports items removed by hand (`eai init`
   restores them), values the developer changed, and per-model `modelSettings` values that override ours.
 - `--dry-run` output says "would turn on" / "would remove".
+- `eai on` and `eai off` take several items (`eai on trim concise`); each runs on its own, so one refused item
+  does not stop the others (exit 1 if any was refused). `recommended` stands for trim, read-once, concise,
+  minimal and subagent-model: the opt-ins that fit any setup. navigate (large Python repos), deny-deps (can
+  block reads Claude needs) and cache (API billing only) stay one by one.
 
 ## Safety
 - Backups are readable by the user only (0600; state folder 0700) because settings.json can hold secrets.

@@ -11,14 +11,18 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Heavier modules (analyze, the settings commands, navigate, mcp) are imported where they are used, so a
 # quick command such as `eai navigate where X`, which Claude runs often, starts fast.
-from ai_usage_kit.defaults.items import ITEM_IDS
+from ai_usage_kit.defaults.items import ITEM_IDS, RECOMMENDED
 from ai_usage_kit.defaults.managed import managed_dir, system_managed
 from ai_usage_kit.defaults.settings import SettingsError
 from ai_usage_kit.trim.hook import now_seconds, run_hook, state_dir
 from ai_usage_kit.trim.install import is_persistent_install
+
+if TYPE_CHECKING:
+    from ai_usage_kit.defaults.commands import Context
 
 
 def parse_since(value: str) -> datetime:
@@ -52,8 +56,14 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--dry-run", action="store_true", help="show the changes, write nothing")
     sub.add_parser("status", help="show each item: on, off, skipped or set by your organization")
     for name in ("on", "off"):
-        toggle = sub.add_parser(name, help=f"turn one item {name}")
-        toggle.add_argument("item", choices=ITEM_IDS)
+        toggle = sub.add_parser(name, help=f"turn items {name} (several at once, or: recommended)")
+        toggle.add_argument(
+            "items",
+            metavar="item",
+            nargs="+",
+            choices=(*ITEM_IDS, "recommended"),
+            help=f"one or more of: {', '.join(ITEM_IDS)}; or recommended ({', '.join(RECOMMENDED)})",
+        )
         toggle.add_argument("--dry-run", action="store_true", help="show the change, write nothing")
     mcp = sub.add_parser("mcp", help="read-only check: MCP tool search state, servers and their use")
     mcp.add_argument("--since", type=parse_since, default="30d", help="usage window: 30d or YYYY-MM-DD")
@@ -315,7 +325,8 @@ def _defaults_command(args: argparse.Namespace) -> int:
 
     eai_path = _eai_path()
     version = None
-    if args.command == "on" and args.item == "subagent-model":
+    items = _expand_items(args.items) if args.command in ("on", "off") else []
+    if args.command == "on" and "subagent-model" in items:
         from ai_usage_kit.analyze.versions import newest_claude_code_version
 
         since = datetime.now(UTC) - timedelta(days=30)
@@ -326,10 +337,8 @@ def _defaults_command(args: argparse.Namespace) -> int:
             result = commands.init(ctx, args.dry_run)
         elif args.command == "status":
             result = commands.status(ctx)
-        elif args.command == "on":
-            result = commands.turn_on(ctx, args.item, args.dry_run)
-        elif args.command == "off":
-            result = commands.turn_off(ctx, args.item, args.dry_run)
+        elif args.command in ("on", "off"):
+            return _toggle_items(ctx, args, items)
         else:
             result = commands.uninstall(ctx, args.dry_run)
     except SettingsError as error:
@@ -341,6 +350,33 @@ def _defaults_command(args: argparse.Namespace) -> int:
         return 1
     print("\n".join(result.lines), file=sys.stderr if result.code else sys.stdout)
     return result.code
+
+
+def _expand_items(names: Sequence[str]) -> list[str]:
+    """Item ids in the order given, `recommended` expanded, each once."""
+    expanded = [i for name in names for i in (RECOMMENDED if name == "recommended" else (name,))]
+    return list(dict.fromkeys(expanded))
+
+
+def _toggle_items(ctx: Context, args: argparse.Namespace, items: list[str]) -> int:
+    """Each item on its own, so one refused item does not stop the rest; prints as it goes."""
+    from ai_usage_kit.defaults import commands
+    from ai_usage_kit.defaults.items import NOT_RECOMMENDED
+
+    toggle = commands.turn_on if args.command == "on" else commands.turn_off
+    code = 0
+    if args.dry_run:
+        print(commands.DRY_RUN)
+    for item in items:
+        result = toggle(ctx, item, args.dry_run)
+        lines = [line for line in result.lines if line != commands.DRY_RUN]
+        if result.code and len(items) > 1:
+            lines = [f"{item}: {line}" for line in lines]  # say which item an error belongs to
+        print("\n".join(lines), file=sys.stderr if result.code else sys.stdout)
+        code = max(code, result.code)
+    if args.command == "on" and "recommended" in args.items:
+        print(NOT_RECOMMENDED)
+    return code
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -190,3 +190,53 @@ def test_claude_config_dir_is_where_logs_are_read(
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
     assert main(["on", "subagent-model"]) == 1
     assert "found 2.1.9" in capsys.readouterr().err
+
+
+def test_on_recommended_turns_on_the_safe_set(
+    no_org: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "_eai_path", lambda: "C:/tools/eai.exe")
+    assert main(["on", "recommended"]) == 0
+    out = capsys.readouterr().out
+    for item in ("trim", "read-once", "concise", "minimal", "subagent-model"):
+        assert re.search(rf"^  {item} +on: ", out, re.M)
+    assert "navigate" in out and "deny-deps" in out and "cache" in out  # named as left off
+    data = json.loads((no_org / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert data["env"]["CLAUDE_CODE_SUBAGENT_MODEL"] == "sonnet"
+    assert "navigate" not in json.dumps(data)
+    assert (no_org / ".claude" / "rules" / "eai-concise.md").exists()
+    assert main(["off", "recommended"]) == 0
+    assert not (no_org / ".claude" / "rules" / "eai-concise.md").exists()
+    assert "CLAUDE_CODE_SUBAGENT_MODEL" not in (no_org / ".claude" / "settings.json").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_on_several_items_once_each(no_org: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["on", "concise", "minimal", "concise", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("Dry run: nothing was written.") == 1
+    assert len(re.findall(r"^  concise ", out, re.M)) == 1 and re.search(
+        r"^  minimal +would turn on", out, re.M
+    )
+    assert not (no_org / ".claude").exists()
+    assert main(["on", "concise", "minimal"]) == 0
+    assert (no_org / ".claude" / "rules" / "eai-minimal.md").exists()
+
+
+def test_one_refused_item_does_not_stop_the_others(no_org: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["on", "cache", "concise"]) == 1
+    captured = capsys.readouterr()
+    assert "none was detected" in captured.err
+    assert re.search(r"^  concise +on: ", captured.out, re.M)
+    assert (no_org / ".claude" / "rules" / "eai-concise.md").exists()
+
+
+def test_dry_run_line_and_error_labels_with_several_items(
+    no_org: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["on", "cache", "concise", "--dry-run"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out.startswith("Dry run: nothing was written.")
+    assert captured.err.startswith("cache: error: ")
+    assert not (no_org / ".claude").exists()

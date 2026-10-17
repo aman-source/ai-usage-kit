@@ -150,6 +150,10 @@ ITEMS = (
     ),
 )
 ITEM_IDS = tuple(item.id for item in ITEMS)
+# `eai on recommended`: the opt-in items that fit any setup. navigate (large Python repos), deny-deps (can
+# block reads Claude needs) and cache (API billing only) stay one by one.
+RECOMMENDED = ("trim", "read-once", "concise", "minimal", "subagent-model")
+NOT_RECOMMENDED = "left off (turn on one by one if they fit): navigate, deny-deps, cache"
 
 
 @dataclass(frozen=True)

@@ -12,7 +12,7 @@ Hook modules were verified against real Claude Code 2.1.263 with temp settings (
 | Module | Command | Default | What it does | Design note |
 |---|---|---|---|---|
 | analyze | `eai analyze [--since 30d] [--out r.md] [--export e.json]` | n/a | Reads local session logs, reports tokens and waste (repeated reads, large tool output, cache rebuilds, big instructions, many MCP servers, long sessions). `--export` is numbers only, per-export random id | docs/analyze.md |
-| defaults | `eai init`, `eai status`, `eai on/off <item>`, `eai uninstall` (`--dry-run`) | compact, effort, deny-reads on | Documented Claude Code settings: `autoCompactWindow` 200000, `effortLevel` medium only if unset, `permissions.deny` for generated output. Opt-in: `deny-deps`, `cache` (API/cloud billing only) | docs/defaults.md |
+| defaults | `eai init`, `eai status`, `eai on/off <item...>` or `recommended`, `eai uninstall` (`--dry-run`) | compact, effort, deny-reads on | Documented Claude Code settings: `autoCompactWindow` 200000, `effortLevel` medium only if unset, `permissions.deny` for generated output. Opt-in: `deny-deps`, `cache` (API/cloud billing only) | docs/defaults.md |
 | trim | `eai on trim` | opt-in | PostToolUse hook: shortens successful pytest / uv / npm / gradle-build output over 8,000 chars, saves full output locally, never touches failures or the command | docs/trim.md |
 | read-once | `eai on read-once` | opt-in | Pre/PostToolUse(Read) + SessionStart hooks: denies once a re-read of an unchanged file in the same context; retry allowed; resets on compact/clear | docs/read-once.md |
 | concise | `eai on concise` | opt-in | Rule file `~/.claude/rules/eai-concise.md`: shorter replies, every technical detail kept | docs/concise-minimal.md |
