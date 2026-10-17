@@ -212,6 +212,15 @@ def test_on_recommended_turns_on_the_safe_set(
     )
 
 
+def test_on_recommended_does_not_call_an_item_given_too_left_off(
+    no_org: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "_eai_path", lambda: "C:/tools/eai.exe")
+    assert main(["on", "recommended", "navigate"]) == 0
+    left_off = [line for line in capsys.readouterr().out.splitlines() if line.startswith("left off")]
+    assert left_off == ["left off (turn on one by one if they fit): deny-deps, cache"]
+
+
 def test_on_several_items_once_each(no_org: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["on", "concise", "minimal", "concise", "--dry-run"]) == 0
     out = capsys.readouterr().out

@@ -55,7 +55,8 @@ src/ai_usage_kit/
                           # tools.py (answers), query.py (commands), githooks.py, install.py
   hook_files.py           # shared private-file helpers for hooks
 tests/                    # mirrors src; an autouse fixture points Path.home() at a temp dir
-scripts/                  # check_real_totals.py, check_navigate.py, probe_*.py (trim, read-once, rules, navigate)
+scripts/                  # check_real_totals.py, check_navigate.py, probe_*.py (trim, read-once, rules, navigate),
+                          # bench_ab.py (A/B token benchmark, results in docs/benchmark.md)
 docs/                     # one design note per module
 THIRD_PARTY_NOTICES.md    # reference repos, licenses, what informed what
 ```
@@ -64,7 +65,7 @@ THIRD_PARTY_NOTICES.md    # reference repos, licenses, what informed what
 - `uv sync`; gates before every commit: `uv run pytest -q`, `uv run ruff check . scripts`, `uv run ruff format --check src tests scripts`, `uv run mypy`.
 - Lines <= 110 characters. Python 3.11+, standard library only at runtime; ask before adding any dependency.
 - Tests must never touch the real home or real `~/.claude`. Manual checks on a real machine use `--dry-run`.
-- Probe scripts (`scripts/probe_*.py`) spend Claude usage on the signed-in account; run only when approved.
+- Probe and bench scripts (`scripts/probe_*.py`, `scripts/bench_ab.py`) spend Claude usage on the signed-in account; run only when approved.
 - Workflow used for every module: written spec -> written plan -> test-first
   build -> independent whole-branch review -> fix all findings with tests -> real probe for hooks -> merge.
 

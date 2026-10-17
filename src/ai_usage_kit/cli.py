@@ -374,8 +374,9 @@ def _toggle_items(ctx: Context, args: argparse.Namespace, items: list[str]) -> i
             lines = [f"{item}: {line}" for line in lines]  # say which item an error belongs to
         print("\n".join(lines), file=sys.stderr if result.code else sys.stdout)
         code = max(code, result.code)
-    if args.command == "on" and "recommended" in args.items:
-        print(NOT_RECOMMENDED)
+    left_off = [item for item in NOT_RECOMMENDED if item not in args.items]
+    if args.command == "on" and "recommended" in args.items and left_off:
+        print(f"left off (turn on one by one if they fit): {', '.join(left_off)}")
     return code
 
 
