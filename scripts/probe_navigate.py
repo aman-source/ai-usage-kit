@@ -9,7 +9,7 @@ are never touched), and graphs in a temp EAI_STATE_DIR. Asks one question with `
 1. Claude ran an `eai navigate` command through Bash or PowerShell, and it was not denied;
 2. no Read of a whole Python file (every Read of a .py file used offset or limit);
 3. the answer names core.py:12 (where `price` is defined).
-Usage: uv run python scripts/probe_navigate.py
+Usage: uv run python scripts/probe_navigate.py [extra claude args, e.g. --model sonnet]
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -67,8 +68,9 @@ def main() -> int:
         "stream-json",
         "--verbose",
         "--max-turns",
-        "10",
+        "6",
         "--no-session-persistence",
+        *sys.argv[1:],
     ]
     run = subprocess.run(
         args,
